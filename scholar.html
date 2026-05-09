@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scholar — LLM Study Assistant</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300..900;1,300..900&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+<style>
+  :root {
+    --bg:      #f1ebdd;
+    --surface: #faf6ec;
+    --ink:     #1a1612;
+    --muted:   #6b5d4a;
+    --accent:  #7a2d3a;
+    --border:  #d8ccb2;
+    --soft:    #e8dec8;
+
+    --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+    --font-body:    'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    padding: 40px 24px 80px;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  .container { max-width: 920px; margin: 0 auto; }
+
+  /* ---------- Header ---------- */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 28px;
+    margin-bottom: 36px;
+  }
+  .crumb {
+    display: flex; justify-content: space-between; align-items: baseline;
+    flex-wrap: wrap; gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .crumb .ver { letter-spacing: 0.15em; text-transform: none; }
+  h1 {
+    font-family: var(--font-display);
+    font-size: 64px;
+    font-weight: 400;
+    margin: 12px 0 6px;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variation-settings: "SOFT" 50, "WONK" 1;
+  }
+  h1 .dot { color: var(--accent); font-style: italic; }
+  .lede {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--muted);
+    margin: 0;
+    max-width: 560px;
+  }
+
+  /* ---------- Labels & Inputs ---------- */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: block;
+  }
+  textarea, input[type="password"], input[type="text"] {
+    width: 100%;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s ease;
+  }
+  textarea { resize: vertical; min-height: 120px; }
+  textarea:focus, input:focus { border-color: var(--accent); }
+  textarea::placeholder, input::placeholder {
+    color: var(--muted); opacity: 0.6; font-style: italic;
+  }
+
+  section { margin-bottom: 24px; }
+
+  /* ---------- API key row ---------- */
+  .key-row { display: flex; gap: 8px; align-items: stretch; }
+  .key-row input { flex: 1; }
+  .key-row button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .key-help {
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+  .key-help a { color: var(--accent); }
+
+  /* ---------- Mode tabs ---------- */
+  .modes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 8px;
+  }
+  .mode-btn {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    text-align: left;
+    cursor: pointer;
+    font-family: var(--font-body);
+    transition: all 0.2s ease;
+  }
+  .mode-btn.active { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  .mode-btn .mt {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+  .mode-btn .mh {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    opacity: 0.65;
+    text-transform: uppercase;
+  }
+
+  /* ---------- Generate button ---------- */
+  .generate {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 16px 28px;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 500;
+    font-style: italic;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    transition: opacity 0.2s ease;
+  }
+  .generate:disabled { opacity: 0.7; cursor: wait; }
+  .generate:hover:not(:disabled) { filter: brightness(0.95); }
+
+  .error {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: #f0e1e1;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 14px;
+  }
+
+  /* ---------- Result panel ---------- */
+  .panel {
+    background: var(--surface);
+    padding: 36px 32px;
+    border: 1px solid var(--border);
+    margin-bottom: 36px;
+  }
+  .loading {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .pulse {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 1.2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50%      { opacity: 1;   transform: scale(1.4); }
+  }
+
+  /* ---------- Summary mode ---------- */
+  .sum-title {
+    font-family: var(--font-display);
+    font-size: 32px; font-weight: 500;
+    margin: 0; line-height: 1.15; letter-spacing: -0.01em;
+  }
+  .sum-overview { font-size: 16px; line-height: 1.6; margin: 16px 0 24px; }
+  .sum-points { padding: 0; margin: 0; list-style: none; }
+  .sum-points li {
+    display: flex; gap: 14px; margin-bottom: 12px; align-items: baseline;
+  }
+  .sum-points .num {
+    font-family: var(--font-display);
+    font-style: italic;
+    color: var(--accent);
+    font-size: 18px; font-weight: 500;
+    min-width: 22px;
+  }
+  .sum-points .pt { font-size: 15px; line-height: 1.55; }
+  .takeaway {
+    margin-top: 28px; padding: 20px 22px;
+    background: var(--soft);
+    border-left: 3px solid var(--accent);
+  }
+  .takeaway .tk-label {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.2em;
+    color: var(--accent); text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .takeaway .tk-text {
+    font-family: var(--font-display);
+    font-size: 18px; font-style: italic; line-height: 1.45;
+  }
+  .divider {
+    border-top: 1px solid var(--border);
+    padding-top: 20px; margin-top: 20px;
+  }
+
+  /* ---------- Flashcards ---------- */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .card {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    padding: 20px 18px;
+    text-align: left;
+    cursor: pointer;
+    min-height: 140px;
+    transition: all 0.25s ease;
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    position: relative;
+  }
+  .card.revealed { background: var(--ink); color: var(--surface); }
+  .card .c-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0.55;
+    margin-bottom: 10px;
+  }
+  .card .c-q {
+    font-family: var(--font-display);
+    font-size: 17px; font-weight: 500;
+    line-height: 1.45;
+  }
+  .card .c-a { font-family: var(--font-body); font-size: 14px; line-height: 1.5; }
+  .card .c-flip {
+    position: absolute; bottom: 10px; right: 14px;
+    font-family: var(--font-mono); font-size: 9px; opacity: 0.45;
+  }
+
+  /* ---------- Quiz ---------- */
+  .q-block {
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .q-block:last-child { border-bottom: none; }
+  .q-head {
+    display: flex; gap: 14px; align-items: baseline; margin-bottom: 14px;
+  }
+  .q-num {
+    font-family: var(--font-display); font-style: italic;
+    color: var(--accent); font-size: 18px; font-weight: 500;
+  }
+  .q-text {
+    font-family: var(--font-display); font-size: 18px; line-height: 1.4;
+  }
+  .q-options { display: flex; flex-direction: column; gap: 6px; padding-left: 32px; }
+  .opt {
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--border);
+    padding: 10px 14px; text-align: left; cursor: pointer;
+    font-family: var(--font-body); font-size: 14px; line-height: 1.4;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .opt[disabled] { cursor: default; }
+  .opt.correct   { background: #e8f0e4; border-color: #7a9970; color: #2d4a26; }
+  .opt.wrong     { background: #f0e1e1; border-color: var(--accent); color: var(--accent); }
+  .opt-letter { font-family: var(--font-mono); font-size: 11px; opacity: 0.6; }
+  .q-why {
+    margin-top: 12px; margin-left: 32px;
+    padding: 10px 14px;
+    background: var(--soft);
+    font-size: 13px; line-height: 1.5; color: var(--muted);
+    border-left: 2px solid var(--accent);
+  }
+  .q-why .why-tag {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent);
+  }
+
+  /* ---------- Concepts ---------- */
+  .concepts { margin-top: 18px; }
+  .concept {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 24px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .concept:first-child { border-top: 1px solid var(--border); }
+  .concept .term {
+    font-family: var(--font-display);
+    font-size: 19px; font-weight: 500;
+    color: var(--accent); line-height: 1.25; font-style: italic;
+  }
+  .concept .idx {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.2em;
+    color: var(--muted); text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .concept .def { font-size: 15px; line-height: 1.55; margin-bottom: 8px; }
+  .concept .ex {
+    font-size: 13px; font-style: italic; color: var(--muted); line-height: 1.5;
+  }
+  .concept .ex .eg-tag {
+    font-family: var(--font-mono); font-style: normal;
+    font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  @media (max-width: 600px) {
+    .concept { grid-template-columns: 1fr; gap: 8px; }
+    h1 { font-size: 48px; }
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  footer .ft-title {
+    margin-bottom: 10px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  footer .ft-row {
+    margin-top: 18px;
+    display: flex; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+  }
+  footer .ft-row .built { font-style: italic; }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- HEADER -->
+    <header>
+      <div class="crumb">
+        <span>Almaarefa University · Selected Topics</span>
+        <span class="ver">v1.0 · powered by Claude</span>
+      </div>
+      <h1>Scholar<span class="dot">.</span></h1>
+      <p class="lede">An LLM-powered study companion. Paste a topic, a paragraph, or your lecture notes — receive structured study materials in four formats.</p>
+    </header>
+
+    <!-- API KEY -->
+    <section>
+      <label class="label" for="api-key">Anthropic API key</label>
+      <div class="key-row">
+        <input id="api-key" type="password" placeholder="sk-ant-…" autocomplete="off" />
+        <button id="toggle-key" type="button">show</button>
+      </div>
+      <div class="key-help">
+        Your key stays only in this browser tab — never sent anywhere except <code>api.anthropic.com</code>.
+        Get one at <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>.
+      </div>
+    </section>
+
+    <!-- TOPIC INPUT -->
+    <section>
+      <label class="label" for="topic">Your topic or text</label>
+      <textarea id="topic" rows="5" placeholder="e.g. Photosynthesis in C4 plants — or paste a paragraph from your textbook…"></textarea>
+    </section>
+
+    <!-- MODES -->
+    <section>
+      <div class="label">Output format</div>
+      <div class="modes" id="modes">
+        <button class="mode-btn active" data-mode="summary">
+          <div class="mt">Summary</div><div class="mh">Structured overview</div>
+        </button>
+        <button class="mode-btn" data-mode="flashcards">
+          <div class="mt">Flashcards</div><div class="mh">Q &amp; A pairs</div>
+        </button>
+        <button class="mode-btn" data-mode="quiz">
+          <div class="mt">Quiz</div><div class="mh">Multiple choice</div>
+        </button>
+        <button class="mode-btn" data-mode="concepts">
+          <div class="mt">Key Concepts</div><div class="mh">Term definitions</div>
+        </button>
+      </div>
+    </section>
+
+    <!-- GENERATE -->
+    <section>
+      <button class="generate" id="generate">Generate study materials  →</button>
+      <div id="error" class="error hidden"></div>
+    </section>
+
+    <!-- RESULT -->
+    <section id="result-section" class="hidden">
+      <div class="panel" id="panel">
+        <div id="loading" class="loading hidden">
+          <div class="pulse"></div>
+          Generating structured response…
+        </div>
+        <div id="result"></div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="ft-title">Responsible AI notice</div>
+      <div>
+        Outputs are generated by an LLM (Claude · Sonnet 4) and may contain errors or omissions.
+        Always verify important facts against authoritative sources before exams.
+        Your API key is held only in browser memory for the current tab and is never logged.
+      </div>
+      <div class="ft-row">
+        <span>© Selected Topics — CS &amp; IS Department</span>
+        <span class="built">Built with HTML · CSS · Anthropic API</span>
+      </div>
+    </footer>
+  </div>
+
+<script>
+// ============================================================
+// SCHOLAR — vanilla JS controller
+// ============================================================
+
+const PROMPTS = {
+  summary: (text) => `You are a study assistant. Read the following topic or text and return ONLY valid JSON (no markdown, no commentary) matching exactly this shape:
+{
+  "title": "short title",
+  "overview": "2-3 sentence overview",
+  "main_points": ["point 1", "point 2", "point 3", "point 4"],
+  "key_takeaway": "the single most important insight"
+}
+
+TOPIC/TEXT:
+${text}`,
+
+  flashcards: (text) => `You are a study assistant. Create 6 high-quality study flashcards from the following topic or text. Return ONLY valid JSON (no markdown, no commentary) matching exactly this shape:
+{
+  "topic": "short topic name",
+  "flashcards": [
+    {"question": "...", "answer": "concise but complete answer"}
+  ]
+}
+
+TOPIC/TEXT:
+${text}`,
+
+  quiz: (text) => `You are a study assistant. Create 5 multiple-choice quiz questions from the following topic or text. Return ONLY valid JSON (no markdown, no commentary) matching exactly this shape:
+{
+  "topic": "short topic name",
+  "questions": [
+    {
+      "question": "...",
+      "options": ["option A", "option B", "option C", "option D"],
+      "correct_index": 0,
+      "explanation": "why this answer is correct"
+    }
+  ]
+}
+
+TOPIC/TEXT:
+${text}`,
+
+  concepts: (text) => `You are a study assistant. Extract 6 key concepts from the following topic or text. Return ONLY valid JSON (no markdown, no commentary) matching exactly this shape:
+{
+  "topic": "short topic name",
+  "concepts": [
+    {"term": "...", "definition": "concise definition", "example": "short concrete example"}
+  ]
+}
+
+TOPIC/TEXT:
+${text}`,
+};
+
+let mode = 'summary';
+
+// ---------- Helpers ----------
+const $ = (sel) => document.querySelector(sel);
+const escapeHTML = (s) => String(s)
+  .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+  .replaceAll('"','&quot;').replaceAll("'",'&#039;');
+
+function showError(msg) {
+  const el = $('#error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+function clearError() { $('#error').classList.add('hidden'); }
+
+// ---------- Mode tab switching ----------
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    mode = btn.dataset.mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// ---------- API key show/hide ----------
+$('#toggle-key').addEventListener('click', () => {
+  const k = $('#api-key');
+  const t = $('#toggle-key');
+  if (k.type === 'password') { k.type = 'text';     t.textContent = 'hide'; }
+  else                        { k.type = 'password'; t.textContent = 'show'; }
+});
+
+// ---------- Generate ----------
+$('#generate').addEventListener('click', handleGenerate);
+
+async function handleGenerate() {
+  clearError();
+  const apiKey = $('#api-key').value.trim();
+  const text   = $('#topic').value.trim();
+
+  if (!apiKey) { showError('Please paste your Anthropic API key first.'); return; }
+  if (!text)   { showError('Please enter a topic or paste some text.'); return; }
+  if (text.length < 10) { showError('Please provide a bit more context (at least 10 characters).'); return; }
+
+  const btn = $('#generate');
+  btn.disabled = true;
+  btn.textContent = 'Consulting Claude…';
+
+  $('#result-section').classList.remove('hidden');
+  $('#loading').classList.remove('hidden');
+  $('#result').innerHTML = '';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        messages: [{ role: 'user', content: PROMPTS[mode](text) }],
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`API ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const out  = (data.content || [])
+      .map(b => b.type === 'text' ? b.text : '')
+      .filter(Boolean)
+      .join('\n');
+
+    const cleaned = out.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    const parsed  = JSON.parse(cleaned);
+
+    renderResult(mode, parsed);
+  } catch (err) {
+    console.error(err);
+    showError('Could not generate a response. ' + err.message + ' (Check your API key, network, or try a shorter input.)');
+    $('#result-section').classList.add('hidden');
+  } finally {
+    $('#loading').classList.add('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Generate study materials  →';
+  }
+}
+
+// ---------- Renderers ----------
+function renderResult(m, r) {
+  if (m === 'summary')    return renderSummary(r);
+  if (m === 'flashcards') return renderFlashcards(r);
+  if (m === 'quiz')       return renderQuiz(r);
+  if (m === 'concepts')   return renderConcepts(r);
+}
+
+function renderSummary(r) {
+  const points = r.main_points.map((p, i) => `
+    <li>
+      <span class="num">${String(i+1).padStart(2,'0')}</span>
+      <span class="pt">${escapeHTML(p)}</span>
+    </li>`).join('');
+
+  $('#result').innerHTML = `
+    <div class="label">Topic</div>
+    <h3 class="sum-title">${escapeHTML(r.title)}</h3>
+    <p class="sum-overview">${escapeHTML(r.overview)}</p>
+    <div class="divider">
+      <div class="label">Main points</div>
+      <ol class="sum-points">${points}</ol>
+    </div>
+    <div class="takeaway">
+      <div class="tk-label">Key takeaway</div>
+      <div class="tk-text">&ldquo;${escapeHTML(r.key_takeaway)}&rdquo;</div>
+    </div>
+  `;
+}
+
+function renderFlashcards(r) {
+  const cards = r.flashcards.map((c, i) => `
+    <button class="card" data-idx="${i}"
+            data-q="${escapeHTML(c.question)}" data-a="${escapeHTML(c.answer)}">
+      <div class="c-label">Card ${String(i+1).padStart(2,'0')}</div>
+      <div class="c-q">${escapeHTML(c.question)}</div>
+      <div class="c-flip">tap →</div>
+    </button>`).join('');
+
+  $('#result').innerHTML = `
+    <div class="label">Flashcards · ${escapeHTML(r.topic)}</div>
+    <div class="cards">${cards}</div>
+  `;
+
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', () => {
+      const revealed = card.classList.toggle('revealed');
+      const q = card.dataset.q, a = card.dataset.a;
+      card.querySelector('.c-label').textContent = revealed
+        ? 'Answer'
+        : 'Card ' + String(Number(card.dataset.idx)+1).padStart(2,'0');
+      const body = card.querySelector('.c-q, .c-a');
+      body.outerHTML = revealed
+        ? `<div class="c-a">${a}</div>`
+        : `<div class="c-q">${q}</div>`;
+      card.querySelector('.c-flip').textContent = revealed ? '↺ flip' : 'tap →';
+    });
+  });
+}
+
+function renderQuiz(r) {
+  const blocks = r.questions.map((q, qi) => {
+    const opts = q.options.map((o, oi) => `
+      <button class="opt" data-q="${qi}" data-o="${oi}">
+        <span class="opt-letter">${String.fromCharCode(65+oi)}</span>
+        <span>${escapeHTML(o)}</span>
+      </button>`).join('');
+    return `
+      <div class="q-block" data-correct="${q.correct_index}" data-explanation="${escapeHTML(q.explanation)}">
+        <div class="q-head">
+          <span class="q-num">Q${qi+1}.</span>
+          <span class="q-text">${escapeHTML(q.question)}</span>
+        </div>
+        <div class="q-options">${opts}</div>
+      </div>`;
+  }).join('');
+
+  $('#result').innerHTML = `
+    <div class="label">Quiz · ${escapeHTML(r.topic)}</div>
+    <div>${blocks}</div>
+  `;
+
+  document.querySelectorAll('.q-block').forEach(block => {
+    const correct = Number(block.dataset.correct);
+    const why     = block.dataset.explanation;
+    block.querySelectorAll('.opt').forEach(opt => {
+      opt.addEventListener('click', () => {
+        if (block.querySelector('.q-why')) return; // already answered
+        const picked = Number(opt.dataset.o);
+        block.querySelectorAll('.opt').forEach((o, i) => {
+          o.disabled = true;
+          if (i === correct) o.classList.add('correct');
+          else if (i === picked) o.classList.add('wrong');
+        });
+        const why_div = document.createElement('div');
+        why_div.className = 'q-why';
+        why_div.innerHTML = `<span class="why-tag">Why · </span>${why}`;
+        block.appendChild(why_div);
+      });
+    });
+  });
+}
+
+function renderConcepts(r) {
+  const rows = r.concepts.map((c, i) => `
+    <div class="concept">
+      <div>
+        <div class="term">${escapeHTML(c.term)}</div>
+        <div class="idx">${String(i+1).padStart(2,'0')} / ${String(r.concepts.length).padStart(2,'0')}</div>
+      </div>
+      <div>
+        <div class="def">${escapeHTML(c.definition)}</div>
+        <div class="ex"><span class="eg-tag">e.g. </span>${escapeHTML(c.example)}</div>
+      </div>
+    </div>`).join('');
+
+  $('#result').innerHTML = `
+    <div class="label">Concepts · ${escapeHTML(r.topic)}</div>
+    <div class="concepts">${rows}</div>
+  `;
+}
+</script>
+</body>
+</html>
